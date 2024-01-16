@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.deotis.digitalars.mapper.business.MainMapper">
+
+	<select id="getNoticeList" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.MasterNotice">
+			SELECT n_seq
+					,site_code
+					,n_subject
+					,n_data
+					,start_date
+					,end_date
+					,applied_num
+			 FROM M_NOTICE
+			 WHERE site_code = #{params.site_code}
+			 <if test="@org.springframework.util.StringUtils@hasLength(params.dnis)">
+			 AND dnis = #{params.dnis}
+			 </if>
+			 AND NOW() BETWEEN start_date AND end_date
+			 AND applied_num = 1
+			 ORDER BY applied_num
+			 LIMIT 1
+	</select>
+	
+	<select id="getBannerList" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.MasterBanner">
+			SELECT b_seq
+					,site_code
+					,b_name
+					,b_desc
+					,start_date
+					,end_date
+					,applied_yn
+					,url_link
+					,orderby
+					,tracecode
+					,deep_link
+					,etc_str
+					,dnis
+					,(SELECT blob_data from M_BLOB WHERE mb_seq = banner.mb_seq) as blob_data
+					,(SELECT ext from M_BLOB WHERE mb_seq = banner.mb_seq) as ext
+			 FROM M_BANNER banner
+			 WHERE site_code = #{params.site_code}
+			 <if test="@org.springframework.util.StringUtils@hasLength(params.dnis)">
+			 AND dnis = #{params.dnis}
+			 </if>
+			 AND applied_yn = 1
+			 AND NOW() BETWEEN start_date AND end_date
+			 ORDER BY orderby
+			 LIMIT 5
+	</select>
+	
+	<select id="getSiteInfo" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.SiteInfo">
+			SELECT site_code 
+				,site_name
+				,theme_data
+				,(
+					SELECT
+						blob_data
+					FROM
+						m_blob A
+						RIGHT JOIN (
+							SELECT
+								mb_seq
+							FROM
+								m_site_blob_map
+							WHERE
+								icon_type = '1'
+								AND site_code = #{params.site_code}
+						) B ON A.mb_seq = B.mb_seq
+				) AS blob_data_logo
+				,(
+					SELECT
+						ext
+					FROM
+						m_blob A
+						RIGHT JOIN (
+							SELECT
+								mb_seq
+							FROM
+								m_site_blob_map
+							WHERE
+								icon_type = '1'
+								AND site_code = #{params.site_code}
+						) B ON A.mb_seq = B.mb_seq
+				) AS blob_data_logo_ext
+				,(
+					SELECT
+						blob_data
+					FROM
+						m_blob A
+						RIGHT JOIN (
+							SELECT
+								mb_seq
+							FROM
+								m_site_blob_map
+							WHERE
+								icon_type = '2'
+								AND site_code = #{params.site_code}
+						) B ON A.mb_seq = B.mb_seq
+				) AS blob_data_favicon
+				,(
+					SELECT
+						ext
+					FROM
+						m_blob A
+						RIGHT JOIN (
+							SELECT
+								mb_seq
+							FROM
+								m_site_blob_map
+							WHERE
+								icon_type = '2'
+								AND site_code = #{params.site_code}
+						) B ON A.mb_seq = B.mb_seq
+				) AS blob_data_favicon_ext
+			 FROM M_SITE site
+			 WHERE site_gcode = #{params.site_gcode}
+			 AND site_code = #{params.site_code}
+	</select>
+
+	<select id="getEnterTrace" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="java.lang.String">
+			SELECT tracecode
+			 FROM M_TRACECODE_GROUP_MAP
+			 WHERE site_code = #{params.site_code}
+			 AND tracecode_group = #{params.tracecode_group}
+			 AND etc_str LIKE CONCAT('%',#{params.etc_str},'%')
+			 LIMIT 1
+	</select>
+
+	<select id="getBlobList" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.Mblob">
+		SELECT
+			B.mb_seq,
+			B.blob_data,
+			B.ext
+		FROM
+			(
+				SELECT
+					mb_seq
+				FROM
+					m_menu_data
+				WHERE
+					icon_type = 2
+					AND mb_seq IS NOT NULL
+					AND site_code = #{params.site_code}
+					AND menu_code = #{params.menu_code}
+					AND used_yn = 1
+				UNION
+				SELECT
+					mb_seq
+				FROM
+					m_menu_c_data
+				WHERE
+					icon_type = 2
+					AND mb_seq IS NOT NULL
+					AND site_code = #{params.site_code}
+					AND menu_code = #{params.c_menu_code}
+					AND used_yn = 1
+			) A
+			LEFT JOIN m_blob B ON A.mb_seq = B.mb_seq;
+	</select>
+
+</mapper>

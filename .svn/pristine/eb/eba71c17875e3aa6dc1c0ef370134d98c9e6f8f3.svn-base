@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Head -->
+<th:block th:fragment="headFragment">
+	<title>Digital ARS</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="user-scalable=no, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, width=device-width">
+	<meta name="_csrf" th:content="${_csrf?.token}" />
+	<meta name="_csrf_header" th:content="${_csrf?.headerName}" />
+	<link rel="#" href="#" id="contextPathHolder" th:data-contextPath="${#httpServletRequest.getContextPath()}" />
+
+	<!-- CSS 추가 -->
+	<link rel="stylesheet" th:href="@{/static/css/common.css}">
+	<link rel="stylesheet" th:href="@{/static/css/style.css}">
+	<link rel="stylesheet" th:href="@{/static/css/main.css}">
+	<link rel="stylesheet" th:href="@{/static/css/feather-icons.css}">
+	<link rel="stylesheet" th:href="@{/static/css/themify-icons.css}">
+
+	<link rel="icon" type="image/ico" th:href="@{/static/images/favicon.ico}">
+
+	<script th:inline="javascript">
+		const siteInfo = /*[[${siteInfo}]]*/'';
+		
+		const getImageSrc = (blobData, fileExt = 'png') => {
+			fileExt = fileExt || 'png';
+			fileExt = fileExt.toLowerCase();
+			switch (fileExt) {
+				case 'svg':
+					return `data:image/svg+xml;base64,${blobData}`;
+				case 'jpg':
+					return `data:image/jpeg;base64,${blobData}`;
+				case 'ico':
+					return `data:image/x-icon;base64,${blobData}`;
+				default:
+					return `data:image/${fileExt};base64,${blobData}`;
+			}
+		}
+
+		(setBase64ImgSessionStorage = () => {
+			const { blob_data_logo, blob_data_logo_ext, blob_data_favicon, blob_data_favicon_ext } = siteInfo || {};
+
+			if (siteInfo) {
+				!sessionStorage.getItem('base64Img_favicon') && sessionStorage.setItem('base64Img_favicon', getImageSrc(blob_data_favicon, blob_data_favicon_ext));
+				!sessionStorage.getItem('base64Img_logo') && sessionStorage.setItem('base64Img_logo', getImageSrc(blob_data_logo, blob_data_logo_ext));
+			}
+		})();
+
+		(setFavicon = () => {
+			const base64Img = sessionStorage.getItem('base64Img_favicon');
+			
+			if (base64Img) {
+				const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+
+				link.type = 'image/x-icon';
+				link.rel = 'shortcut icon';
+				link.href = base64Img;
+
+				document.querySelector('head').append(link);
+			}
+		})();
+	</script>
+</th:block>
+
+</html>

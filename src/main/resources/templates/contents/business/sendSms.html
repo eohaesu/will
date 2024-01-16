@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/default}">
+
+<head>
+	<script th:src="@{/static/js/common/validate.js}"></script>
+	<script th:inline="javascript">
+
+		let etc_str = null;
+
+		document.addEventListener('DOMContentLoaded', () => {
+
+			const mdData = JSON.parse(sessionStorage.getItem("md"));
+			
+			console.log(mdData);
+
+			etc_str = mdData && mdData.etc_str ? JSON.parse(mdData.etc_str) : null;
+			
+			document.querySelector('#infoMessage').innerHTML = etc_str.confirmMsg;
+			
+			const traceCode = siteInfo.site_code + '0VISSMS';
+
+			call.traceJourney(traceCode).then(() => {
+				const voiceData = [
+				{
+					"TYPE": "FILE",
+					"SRC": "sound/DARS/da_send_sms.pcm",
+					"TTSCLASS": ""
+				}
+				];
+				
+				if(etc_str.audioPath){
+					voiceData.unshift(
+					{
+						"TYPE": "FILE",
+						"SRC": etc_str.audioPath,
+						"TTSCLASS": "" 
+					});
+				}
+
+				call.voiceStop(false, voiceData);
+				polling.shortReq(1500, ctrlback);
+				//polling.longSSE(ctrlback);
+			});
+		});
+
+		const next = function () {
+			const errMsg = {
+				"-1": "휴대폰 번호 형식이 잘못되었습니다.",
+				"-2": "조회를 실패하였습니다."
+			};
+
+			if (!validate.checkInputType('cell', document.querySelector('#cell').value)) {
+				alert(errMsg[-1]);
+				document.querySelector('#cell').focus();
+				return false;
+			} else {
+				axios.post(`${contextPath}/ivr/send/sms/etc`, { cell: document.querySelector('#cell').value, scCode: etc_str.scCode }).then(({ data }) => {
+					if (data > 0) {
+						document.querySelector('#loading').classList.remove('hidden');
+					} else {
+						alert(errMsg[data]);
+					}
+				});
+			}
+		};
+
+		const ctrlback = (data) => {
+			document.querySelector('#loading').classList.add('hidden');
+			const dataArr = data.param.split(',');
+			//busiCode가 일치 할때 처리
+			if (dataArr[0] === etc_str.scCode && dataArr[1] === "Y") {
+				location.replace(`${contextPath}/ivr/send/finish`);
+			} else {
+				location.replace(`${contextPath}/ivr/send/fail`);
+			}
+		};
+
+	</script>
+</head>
+<th:block layout:fragment="content">
+	<div class="ivr">
+		<!-- Contents -->
+		<div class="container_wrapper">
+			<div class="container">
+				<div class="contents contentline">
+					<section class="contentTitle">
+						<span class="title">문자 전송</span>
+					</section>
+					<section class="row">
+						<h4>수신 받으실 휴대폰 번호를 입력해주세요.<br />
+							미 입력 시 현재 번호로 전송 됩니다.</h4>
+						<div class="table">
+							<ul>
+								<li>
+									<span>휴대폰 번호</span>
+								</li>
+								<li>
+									<input type="text" id="cell" onInput="common.cellNumHyphen(this)" maxlength="13" placeholder="휴대폰 번호 입력">
+								</li>
+							</ul>
+						</div>
+						<ul class="button_group full mT1_5em">
+							<li>
+								<button type="button" class="button submit" onclick="next()">문자 전송</button>
+							</li>
+						</ul>
+						<div class="infobox">
+                            <span id="infoMessage"></span>
+                        </div>
+					</section>
+				</div>
+			</div>
+		</div>
+		<!-- //Contents End-->
+	</div>
+</th:block>
+
+</html>

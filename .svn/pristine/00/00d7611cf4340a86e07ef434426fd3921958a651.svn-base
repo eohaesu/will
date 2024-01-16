@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/contentful}">
+<head>
+	<script th:inline="javascript">
+
+		document.addEventListener('DOMContentLoaded', () => {
+			
+			(setLogoImg = () => {
+				const base64Img = sessionStorage.getItem('base64Img_logo');
+
+				base64Img && document.querySelector('body').style.setProperty('--ci-img', `url('${base64Img}')`);
+			})();
+			
+			common.blockHistoryBack();
+			
+			const mdData = JSON.parse(sessionStorage.getItem("md"));
+			
+			const etc_str = mdData && mdData.etc_str ? JSON.parse(mdData.etc_str) : null;
+
+			const dataAlign = {
+					"0" : {"1" : "전화번호 남기기",  "2" : "0SUBACK",  "3" : "sound/DARS/da_cb_finish.pcm"},
+					"1" : {"1" : "문자 전송",  "2" : "0SUSSMS",  "3" : "sound/DARS/da_sms_finish.pcm"},
+					"2" : {"1" : "이메일 전송", "2" : "0SUMAIL",  "3" : "sound/DARS/da_mail_finish.pcm"},
+					"3" : {"1" : "FAX 전송",  "2" : "0SUSFAX",  "3" : "sound/DARS/da_fax_finish.pcm"} 
+			}
+			
+			const scType = etc_str?.scType ? etc_str.scType : '0';
+
+			document.querySelector('#cTitle').textContent = dataAlign[scType][1];
+			document.querySelector('#cText').innerHTML = dataAlign[scType][1]+document.querySelector('#cText').innerHTML;
+			
+			//여정적재
+			call.traceJourney(siteInfo.site_code+dataAlign[scType][2]).then(() => {
+				call.voiceStop(false, dataAlign[scType][3]);
+				setTimeout(timeOutEnd, 6000);
+				polling.shortReq();
+			});
+		});
+
+		const timeOutEnd = function(){
+			call.unbind().then(() => {
+				location.replace(contextPath+"/auth/sessionEnd");
+			});
+		}
+	</script>
+</head>
+<th:block layout:fragment="content">
+	<div class="ivr">
+				<!-- Contents -->
+				<div class="container_wrapper">
+						<div class="container">
+								<div class="contents contentline">
+										<section class="contentTitle">
+												<span class="title" id="cTitle"></span>
+										</section>
+										<section class="row">
+												<div class="imgBox">
+							<p class="imageIcon">
+								<span class="icon result_completion"></span><!-- 성공 result_completion -->
+							</p>
+						</div>
+						<div class="small">
+							<h2 style="text-align: center;">
+								<span class="custom_text" id="cText">정상처리 되었습니다.<br />이용해 주셔서 감사합니다.</span>
+							</h2>
+						</div>
+										</section>
+				</div>
+			</div>
+		</div>
+		<!-- //Contents End-->
+	</div>
+</th:block>
+</html>

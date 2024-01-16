@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.deotis.digitalars.mapper.common.MenuMapper">
+
+	<select id="getArsMenu" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.MasterMenu">
+		SELECT site_code
+				,menu_code
+				,menu_title
+				,update_date
+		FROM M_MENU
+		WHERE site_code = #{params.site_code}
+		<choose>
+			<when test="@org.springframework.util.StringUtils@hasLength(params.menu_code)">
+				AND menu_code = #{params.menu_code}
+			</when>
+			<otherwise>
+				<!-- AND dnis = #{params.dnis}
+				AND member_yn = #{params.member_yn}
+				 -->
+			</otherwise>
+		</choose>
+		LIMIT 1
+	</select>
+
+	<select id="getArsMenuDataTree" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.MasterMenuData">
+		WITH RECURSIVE menuTree AS(
+		SELECT
+				site_code,
+				menu_code,
+				menu_seq,
+				tracecode,
+				menu_seq_parent,
+				menu_number,
+				menu_name,
+				menu_url,
+				1 menu_depth,
+				etc_str,
+				deep_link,
+				icon_url,
+				menu_type,
+				queue_no,
+				mb_seq,
+				icon_type
+			FROM
+				M_MENU_DATA
+			WHERE
+				menu_seq_parent IS NULL
+				AND site_code = #{params.site_code} AND menu_code = #{params.menu_code}
+		UNION ALL
+		SELECT
+				mmd.site_code,
+				mmd.menu_code,
+				mmd.menu_seq,
+				mmd.tracecode,
+				mmd.menu_seq_parent,
+				mmd.menu_number,
+				mmd.menu_name,
+				mmd.menu_url,
+				mt.menu_depth + 1 menu_depth,
+				mmd.etc_str,
+				mmd.deep_link,
+				mmd.icon_url,
+				mmd.menu_type,
+				mmd.queue_no,
+				mmd.mb_seq,
+				mmd.icon_type
+			FROM
+				M_MENU_DATA mmd
+				INNER JOIN menuTree mt ON mmd.menu_seq_parent = mt.menu_seq
+			WHERE mmd.site_code = #{params.site_code}
+			AND mmd.menu_code = #{params.menu_code}
+		)
+		SELECT
+				site_code,
+				menu_code,
+				menu_seq,
+				tracecode,
+				menu_seq_parent,
+				CAST(menu_number AS UNSIGNED) AS menu_number,
+				menu_name,
+				menu_url,
+				menu_depth,
+				etc_str,
+				deep_link,
+				icon_url,
+				menu_type,
+				queue_no,
+				mb_seq,
+				icon_type,
+				CASE
+					WHEN (
+						SELECT
+							COUNT(*)
+						FROM
+							M_MENU_DATA
+						WHERE
+							site_code = menuTree.site_code
+							AND menu_code = menuTree.menu_code
+							AND menu_seq_parent = menuTree.menu_seq
+					) > 0 THEN 1
+					ELSE 0
+				END AS child_yn,
+				(
+					SELECT MAX(menu_depth)
+					FROM menuTree
+				) AS max_menu_depth
+			FROM
+				menuTree
+			ORDER BY
+				site_code,
+				menu_code,
+				menu_number,
+				menu_seq
+	</select>
+	
+	<select id="getSuggestMenu" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.MasterMenu">
+		SELECT site_code
+				,menu_code
+				,menu_title
+				,update_date
+		FROM M_MENU_C
+		WHERE site_code = #{params.site_code}
+		<choose>
+			<when test="@org.springframework.util.StringUtils@hasLength(params.menu_code)">
+				AND menu_code = #{params.menu_code}
+			</when>
+			<otherwise>
+				<!-- AND dnis = #{params.dnis}
+				AND member_yn = #{params.member_yn}
+				 -->
+			</otherwise>
+		</choose>
+		LIMIT 1
+	</select>
+	
+	<select id="getSuggestMenuTree" parameterType="com.deotis.digitalars.util.collection.DMap" resultType="com.deotis.digitalars.model.MasterCustomMenuData">
+		WITH RECURSIVE menuSuggestTree AS(
+		SELECT
+				site_code,
+				menu_code,
+				menu_seq,
+				tracecode,
+				menu_seq_parent,
+				menu_number,
+				menu_name,
+				menu_url,
+				1 menu_depth,
+				etc_str,
+				deep_link,
+				icon_url,
+				menu_type,
+				queue_no,
+				mb_seq,
+				icon_type
+			FROM
+				M_MENU_C_DATA
+			WHERE
+				menu_seq_parent IS NULL
+				AND site_code = #{params.site_code} AND menu_code = #{params.menu_code}
+		UNION ALL
+		SELECT
+				mmd.site_code,
+				mmd.menu_code,
+				mmd.menu_seq,
+				mmd.tracecode,
+				mmd.menu_seq_parent,
+				mmd.menu_number,
+				mmd.menu_name,
+				mmd.menu_url,
+				mst.menu_depth + 1 menu_depth,
+				mmd.etc_str,
+				mmd.deep_link,
+				mmd.icon_url,
+				mmd.menu_type,
+				mmd.queue_no,
+				mmd.mb_seq,
+				mmd.icon_type
+			FROM
+				M_MENU_C_DATA mmd
+				INNER JOIN menuSuggestTree mst ON mmd.menu_seq_parent = mst.menu_seq
+			WHERE mmd.site_code = #{params.site_code}
+			AND mmd.menu_code = #{params.menu_code}
+		)
+		SELECT
+				site_code,
+				menu_code,
+				menu_seq,
+				tracecode,
+				menu_seq_parent,
+				CAST(menu_number AS UNSIGNED) AS menu_number,
+				menu_name,
+				menu_url,
+				menu_depth,
+				etc_str,
+				deep_link,
+				icon_url,
+				menu_type,
+				queue_no,
+				mb_seq,
+				icon_type,
+				(
+					SELECT MAX(menu_depth)
+					FROM menuSuggestTree
+				) AS max_menu_depth
+			FROM
+				menuSuggestTree
+			ORDER BY
+				site_code,
+				menu_code,
+				menu_number,
+				menu_seq
+	</select>
+	
+</mapper>

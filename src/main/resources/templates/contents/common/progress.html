@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/contentful}">
+<head>
+	<script th:inline="javascript">
+
+		let redirectUri = /*[[${redirectUri}]]*/ "";
+		let recieveFlag = false;
+	
+		document.addEventListener('DOMContentLoaded', () => {
+			document.querySelector('#loading').classList.remove('hidden');
+			//polling.longSSE(ctrlback);
+			polling.shortReq(1000, ctrlback);
+
+			setTimeout(()=>{
+				if(!recieveFlag){
+					call.traceJourney(siteInfo.site_code + "0FNPRGF").then(() => {
+						call.voiceStop(false, "sound/DARS/da_busy_msg.pcm");
+					});
+					
+					document.querySelector('#loading').classList.add('hidden');
+					document.querySelector('#ticon').classList.remove('timeguide');
+					document.querySelector('#ticon').classList.add('info_warning');
+					document.querySelector('#messageTxt').innerHTML = "죄송합니다.<br />응답을 실패하였습니다.";
+					document.querySelector('#goMainBtn').classList.remove('hidden');
+					document.querySelector('#callEndBtn').classList.remove('hidden');
+					document.querySelector('#message_title').textContent = "응답 실패";
+				}
+			}, 15000);
+		});
+		
+		const ctrlback = (data) =>{
+			
+			recieveFlag = true;
+			
+			document.querySelector('#loading').classList.add('hidden');
+			
+			redirectUri = redirectUri || "/main";
+
+			location.replace(contextPath+redirectUri);
+
+		};
+		
+		const goToMain = () => {
+			call.setProgress(0).then(() => {
+				location.replace(contextPath+"/main");
+			});
+		};
+		
+		const setCallEnd = ()=>{
+			call.traceJourney(siteInfo.site_code + "0BTCEND").then(() => {
+				call.unbind().then(() => {
+					location.replace(contextPath+"/auth/sessionEnd");
+				});
+			});
+		};
+		
+	</script>
+</head>
+<th:block layout:fragment="content">
+	<div class="ivr">
+		<!-- Contents -->
+		<div class="container_wrapper">
+			<div class="container">
+				<div class="contents">
+					<section class="contentTitle">
+						<span class="title" id="message_title">처리 응답 대기</span>
+					</section>
+					<div class="displayMiddle_title">
+						<section class="row">
+							<div class="imgBox">
+								<p class="imageIcon">
+									<span id="ticon" class="icon timeguide"></span>
+								</p>
+							</div>
+							<div class="small">
+								<h2>
+									<span class="custom_text" id="messageTxt">잠시 기다려 주시기 바랍니다.</span>
+								</h2>
+							</div>
+							<ul class="button_group full mT1_5em">
+								<li>
+	                                <button type="button" class="button submit hidden" id="goMainBtn" onclick="goToMain();">메인</button>
+	                            </li>
+	                            <li>
+	                                <button type="button" class="button submit hidden" id="callEndBtn" onclick="setCallEnd();">종료</button>
+	                            </li>
+							</ul>
+						</section>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- //Contents -->
+	</div>
+</th:block>
+</html>
+
+

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/default}">
+
+<head>
+	<script th:inline="javascript">
+
+		let recieveFlag = false;
+		
+		const waitCode = /*[[${waitCode}]]*/ "";
+		const separator = /*[[${separator}]]*/ "";
+
+		document.addEventListener('DOMContentLoaded', () => {
+
+			document.querySelector('#loading').classList.remove('hidden');
+
+			const menuData = JSON.parse(sessionStorage.getItem("md"));
+
+			call.setProgress(1).then(({ data }) => {
+				if (data) {
+					call.goToEnd(waitCode+separator+menuData?.queue_no).then(() => {
+						setTimeout(() => {
+							if (!recieveFlag) {
+								setFailView();
+							}
+						}, 10000);
+					});
+				}
+
+				polling.shortReq(1500, ctrlback); //start short polling	
+			});
+		});
+		const setFailView = () =>{
+			document.querySelector('#loading').classList.add('hidden');
+			document.querySelector('#forward_counselor').classList.remove('hidden');
+			document.querySelector('#waiting_title').textContent = '상담사 대기인수 조회 실패';
+			document.querySelector('#waitting_data').innerHTML = '죄송합니다.<br/>대기 고객 조회를 실패하였습니다.';
+			polling.clearEvent();
+		}
+		
+
+		const ctrlback = (data) => {
+			
+			const viewTraceCode = siteInfo.site_code + '0VICSWT';
+
+			document.querySelector('#waitting_data').innerHTML = `상담사 연결까지<br />대기 고객 <span class="text-special pointbig" id="transfer_customer"><\/span> 입니다.`;
+			document.querySelector('#forward_counselor').classList.remove('hidden');
+			document.querySelector('#loading').classList.add('hidden');
+			
+			let waitCount = 0;
+
+			try{
+				const dataArr = data.param.split(",");
+
+				waitCount = dataArr[0] === '03' && dataArr[1] ? dataArr[1] : 0;
+			}catch(e){
+				setFailView();
+			}
+			
+			recieveFlag = true;
+
+			let voiceData = [
+				{
+					"TYPE": "FILE",
+					"SRC": "sound/DARS/da_counselor_start.pcm",
+					"TTSCLASS": ""
+				},
+				{
+					"TYPE": "TTS",
+					"SRC": waitCount,
+					"TTSCLASS": "TEXT"
+				},
+				{
+					"TYPE": "FILE",
+					"SRC": "sound/DARS/da_counselor_end.pcm",
+					"TTSCLASS": ""
+				}
+			];
+			
+			//여정적재
+			call.traceJourney(viewTraceCode).then(() => {
+				call.voiceStop(false, voiceData);
+			});
+
+			if (waitCount < 10) {
+				document.querySelector('#waiting_title').textContent = '상담사 연결이 원활 합니다.';
+				document.querySelector('#transfer_delay').classList.remove('transfer_contactWait');
+				document.querySelector('#transfer_delay').classList.add('transfer_contactWait_smoothness');
+				//document.querySelector('#transfer_delay').textContent = '원활';
+				//document.querySelector('#transfer_customer').classList.remove('delay');
+				//document.querySelector('#transfer_customer').classList.add('smoothness');
+
+			} else {
+				document.querySelector('#waiting_title').textContent = '상담사 연결이 지연 중 입니다.';
+				document.querySelector('#phoneNb_callback').style.display = 'block';
+				document.querySelector('#transfer_delay').classList.remove('transfer_contactWait');
+				document.querySelector('#transfer_delay').classList.add('transfer_contactWait_delay');
+				//document.querySelector('transfer_delay').textContent = '지연';
+				//document.querySelector('transfer_customer').classList.remove('smoothness');
+				//document.querySelector('transfer_customer').classList.add('delay');
+				
+			}
+			
+			document.querySelector('#transfer_customer').textContent = `${waitCount}명`;
+		};
+
+		const backPage = function () {
+			history.back();
+		}
+
+		const counselorConnect = function () {
+			location.replace(`${contextPath}/counselor/connect/continue`);
+		};
+
+		const phoneNb_callback = function () {
+			location.replace(`${contextPath}/ivr/send/callback`);
+		};
+
+	</script>
+</head>
+<th:block layout:fragment="content">
+	<div class="ivr">
+		<!-- Contents -->
+		<div class="container_wrapper">
+			<div class="container">
+				<div class="contents">
+					<section class="contentTitle">
+						<span class="title" id="waiting_title">상담사 대기고객 확인 중</span>
+					</section>
+					<div class="displayMiddle_title">
+						<section class="row">
+							<div class="imgBox">
+								<p class="imageIcon">
+									<span id="transfer_delay" class="icon transfer_contactWait"></span><!-- 상담사원활/지연 .transfer_smoothness/.transfer_delay -->
+								</p>
+							</div>
+							<div class="small">
+								<h2>
+									<span class="custom_text" id="waitting_data">상담사 연결 대기 고객 확인 중</span>
+								</h2>
+							</div>
+							<ul class="button_group full mT1_5em">
+								<li id="phoneNb_callback" style="display: none;">
+									<button type="button" class="button" onclick="phoneNb_callback()" style="color:black !important;">전화번호 남기기</button>
+								</li>
+								<li>
+									<button type="button" class="button submit hidden" onclick="counselorConnect()" id="forward_counselor">상담사 연결</button>
+								</li>
+							</ul>
+						</section>
+					</div>
+
+				</div>
+			</div>
+		</div>
+		<!-- //Contents -->
+	</div>
+</th:block>
+
+</html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<th:block th:fragment="topbarFragment">
+
+	<script th:inline="javascript">
+		(setLogoImg = () => {
+			const base64Img = sessionStorage.getItem('base64Img_logo');
+
+			base64Img && document.querySelector('body').style.setProperty('--ci-img', `url('${base64Img}')`);
+		})();
+	</script>
+	<!-- header -->
+	<header class="header_wrapper">
+		<div class="header">
+			<span class="header_logo ci_img"><span class="label">logo</span></span>
+		</div>
+	</header>
+	<!-- //header -->
+</th:block>
+
+</html>

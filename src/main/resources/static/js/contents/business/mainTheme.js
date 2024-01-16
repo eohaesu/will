@@ -1,0 +1,54 @@
+/**
+ * main theme js
+ * 
+ */
+const mainTheme = {
+  /**
+   * 메인 레이아웃 세팅
+   * 
+   */
+  setMainThemeLayout: function () {
+    const { top, middle, bottom } = theme.options.themeData;
+
+    document.querySelector('#previewTop').appendChild(document.querySelector(`#${top}`));
+    document.querySelector('#previewMiddle').appendChild(document.querySelector(`#${middle}`));
+    document.querySelector('#previewBottom').appendChild(document.querySelector(`#${bottom}`));
+  },
+  /**
+   * 메인 인사말/하단 안내 문구 세팅
+   * 
+   */
+  setMainIntro: function () {
+    const { template, topIntro, bottomIntro } = theme.options.themeData;
+    const topIntroElement = document.querySelector('#topIntro');
+    const bottomIntroElement = document.querySelector('#bottomIntro');
+	switch (template) {
+      case '1':
+      case '2':
+        topIntroElement.closest('section').classList.add('info');
+        topIntroElement.closest('section').classList.remove('contentTitle');
+        topIntroElement.closest('div').classList.remove('contentline');
+        topIntroElement.classList.add('custom_text');
+        topIntroElement.classList.remove('title');
+        break;
+      case '3':
+        topIntroElement.closest('section').classList.remove('info');
+        topIntroElement.closest('section').classList.add('contentTitle');
+        topIntroElement.closest('div').classList.add('contentline');
+        topIntroElement.classList.remove('custom_text');
+        topIntroElement.classList.add('title');
+        break;
+    }
+    topIntroElement.innerHTML = topIntro; // tag 적용을 위함
+    bottomIntroElement.innerHTML = bottomIntro; // tag 적용을 위함
+  },
+  /**
+   * 템플릿 보여주기
+   * 
+   */
+  showTemplate: function () {
+    this.setMainThemeLayout();
+    this.setMainIntro();
+    document.querySelector('#templateTheme').classList.remove('hidden');
+  }
+};

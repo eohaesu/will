@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main}">
+
+<head>
+	<script th:src="@{/static/js/libs/swiper.min.js}"></script>
+	<script th:src="@{/static/js/contents/business/mainTheme.js}"></script>
+	<link th:href="@{/static/css/libs/swiper.css}" rel="stylesheet" type="text/css" />
+
+	<script th:inline="javascript">
+		document.addEventListener('DOMContentLoaded', () => {
+			const wcSeq = /*[[${wcSeq}]]*/ "";
+			// const c_name = customerNameByteCheck(/*[[${customerName}]]*/ "", 8); // 사용중이지 않음 @@@
+
+			const init = async () => {
+				polling.shortReq();
+
+				// document.querySelector('#customerName').textContent = c_name; // 사용중이지 않음 @@@
+				!sessionStorage.getItem("noticeConfirm") && getNotice(); // 공지사항 호출
+				await setMenuSessionStorage();
+				hashHandler(); // 메인/추천 메뉴 그려짐
+				await drawBanner(); // 배너이미지 호출
+				mainTheme.showTemplate(); // 화면 관련 통신이 종료된 후 실행
+			}
+
+			init();
+
+			document.querySelector('#FABMG').onclick = function() {
+				counselorConnectionClick(0, 1);
+			};
+			
+		});
+
+		window.addEventListener('hashchange', () => {
+			hashHandler();
+			footerHashHandler();
+		});
+
+		// 글자수 체크 
+		// byte글자수 체크
+		const customerNameByteCheck = function (name, byteMax) {
+			let decountByte = byteMax;
+			let checkdata;
+			let byteMaxResult = 0;
+			let returnName = "";
+
+			for (t = 0; t < name.length; t++) {
+				checkdata = name.charAt(t);
+
+				if (byteMaxResult < byteMax) {
+					if (escape(checkdata).length > 4) {
+						byteMaxResult += 2;
+						decountByte -= 2;
+						returnName += name.charAt(t);
+					} else if (escape(checkdata).length == 1) {
+						byteMaxResult += 1;
+						decountByte -= 1;
+						returnName += name.charAt(t);
+					}
+				}
+			}
+
+			return `${returnName} 고객님 안녕하세요`;
+		}
+
+		/**
+		 * menu icon setting
+		 * 
+		 * @param {string} template
+		 * @param {string} colorTheme
+		 * @param {number} icon_type 
+		 * @param {string} icon_url 
+		 * @param {number} mb_seq 
+		 * @returns 
+		 */
+		const setMenuIcon = (template, colorTheme, icon_type, icon_url = '', mb_seq) => {
+			/**
+			 * none icon setting
+			 * 테마 1의 경우 font icon class가 없으면 메뉴 정렬이 제대로 되지 않아 투명 font icon 적용
+			 * 
+			 * @returns
+			 */
+			const setNoneIcon = () => {
+				switch (template) {
+					case '1':
+						return `<span class="list_btn fi-alert-circle" style="color: rgba(255, 255, 255, 0) !important;"><\/span>`;
+					default:
+						return `<span class="list_btn"><\/span>`;
+				}
+			}
+
+			/**
+			 * font icon color setting
+			 * 
+			 * @param {string} colorTheme 
+			 * @returns 
+			 */
+			const setBackgroundColor = (colorTheme) => {
+				switch (colorTheme) {
+					case '':
+					case 'bg':
+						return '--dx--bagic-color';
+					case 'gd':
+						return '--dx--gradient-color';
+					case 'mt':
+						return '--dx--mint-color';
+					case 'gr':
+						return '--dx--green-color';
+					case 'customize':
+						return '--dx--customize-color';
+					case 'customize-single':
+						return '--dx--customize-single-color';
+				}
+			}
+
+			/**
+			 * image icon/url icon setting
+			 * 
+			 * @param {string} icon_type 
+			 * @returns 
+			 */
+			const setImageUrlIcon = (icon_type) => {
+				const setImage = (icon_type) => {
+					switch (icon_type) {
+						case 2: { // blob
+							const blobList = JSON.parse(sessionStorage.getItem('blobData')) || [];
+							const { blob_data, ext } = blobList.find(item => item.mb_seq === mb_seq) || {};
+
+							return getImageSrc(blob_data, ext);
+						}
+						case 4: // url
+							if (icon_url.substring(0, 4).includes('http')) { // full url
+								return icon_url;
+							} else { // resources image
+								return `${contextPath}/static/images/site/${siteInfo.site_code}/${icon_url}`;
+							}
+					}
+				}
+
+				switch (template) {
+					case '1':
+						return `<img src="${setImage(icon_type)}" alt="">`;
+					case '3':
+						return `<span class="list_btn"><img src="${setImage(icon_type)}" alt=""><\/span>`;
+				}
+			}
+
+			switch (icon_type) {
+				case 1:
+					return setNoneIcon();
+				case 2: // image icon
+				case 4: // url icon
+					return setImageUrlIcon(icon_type);
+				case 3: // font icon
+					return `<span class="list_btn ${icon_url}"><\/span>`;
+			}
+		}
+		
+		// Basic Menu Print
+		const drawMainMenu = function () {
+			const { template, colorTheme } = theme.options.themeData;
+			document.querySelector('#mainContainer').classList.remove('hidden');
+			document.querySelector('#subContainer').classList.add('hidden');
+
+			const getMenuArr = sessionStorage.getItem("menuDataTree");
+			const menuArray = JSON.parse(getMenuArr);
+			let htmlStr = "";
+			htmlStr +=     `<p class="mT1_5em">`;
+			htmlStr +=       `<span class="custom_text_small">`;
+			htmlStr +=         `원하시는 서비스를 선택해 주세요.`;
+			htmlStr +=       `<\/span>`;
+			htmlStr +=     `<\/p>`;
+
+			menuArray?.forEach(menu => {
+				if (menu.menu_depth === 1) {
+					htmlStr += `<nav class="navi">`;
+					htmlStr +=   `<ul class="mN_list">`;
+
+					menuArray.forEach((childMenu, index) => {
+						const { menu_seq_parent, icon_type, icon_url, menu_name, menu_seq, mb_seq } = childMenu;
+
+						if (menu.menu_seq === menu_seq_parent) {
+							htmlStr += `<li class="mN_list_btn">`;
+							htmlStr +=   `<a class="list_btn" href="javascript:void(0);" title="${menu_name}" onclick="menuHashChange(${index}, ${menu_seq}, 1)">`;
+
+							switch (template) {
+								case '1':
+									htmlStr += setMenuIcon(template, colorTheme, icon_type, icon_url, mb_seq);
+									break;
+							}
+
+							htmlStr +=     `<span class="menuT" style="">`;
+							htmlStr +=       menu_name;
+							htmlStr +=     `<\/span>`;
+							htmlStr +=   `<\/a>`;
+							htmlStr += `<\/li>`;
+						}
+					});
+
+					htmlStr +=   `<\/ul>`;
+					htmlStr += `<\/nav>`;
+				}
+			});
+
+			document.querySelector("#main").innerHTML = htmlStr;
+
+			// 관리자 메인메뉴 (root)의 tracecode가 없으면 기본메인 tracecode
+			const mainTraceCode = siteInfo.site_code + '0VIMAIN';
+			const rootEtcStr = menuArray[0].etc_str ? JSON.parse(menuArray[0].etc_str) : null;
+
+			call.traceJourney(mainTraceCode).then(() => {
+				if (sessionStorage.getItem("firstMain")) {
+					call.voiceStop(false, "sound/DARS/da_main.pcm");
+				} else {
+					if(rootEtcStr.firstVoice){
+						call.voiceStop(false, rootEtcStr.firstVoice);
+					}
+					sessionStorage.setItem("firstMain", true);
+				}
+			});
+		}
+
+		// Custom Menu Print
+		const drawCustomMenu = function () {
+			const { template, colorTheme } = theme.options.themeData;
+			const getMenuArr = sessionStorage.getItem("customMenuDataTree");
+			const customMenuArray = JSON.parse(getMenuArr);
+
+			const setAClass = (template) => {
+				switch (template) {
+					case '1':
+						return 'list_btn';
+					default:
+						return '';
+				}
+			}
+
+			let htmlStr = '';
+
+			customMenuArray?.forEach(menu => {
+				if (menu.menu_depth === 1) {
+					htmlStr += `<div class="quick-wrapper">`;
+					htmlStr +=   `<ul class="quickMenu">`;
+
+					customMenuArray.forEach((childMenu, index) => {
+						const { menu_seq_parent, menu_seq, menu_name, icon_type, icon_url, mb_seq } = childMenu;
+
+						if (menu.menu_seq === menu_seq_parent) {
+							htmlStr += `<li>`;
+							htmlStr +=   `<a href="javascript:void(0);" class="${setAClass(template)}" title="" id="${menu_seq}" onclick="menuHashChange(${index}, ${menu_seq}, 2);">`;
+
+							switch (template) {
+								case '3':
+									htmlStr += setMenuIcon(template, colorTheme, icon_type, icon_url, mb_seq);
+									break;
+								default:
+									htmlStr += `<span><\/span>`;
+									break;
+							}
+
+							htmlStr +=     `<span class="menuT">`
+							htmlStr +=       menu_name
+							htmlStr +=     `<\/span>`;
+							htmlStr +=   `<\/a>`;
+							htmlStr += `<\/li>`;
+						}
+					});
+
+					htmlStr +=   `<\/ul>`;
+					htmlStr += `<\/div>`;
+				}
+			});
+
+			document.querySelector("#suggest").innerHTML = htmlStr;
+		}
+
+		// Banner IMG Print
+		const drawBanner = async function () {
+			await axios.post(`${contextPath}/main/ajax/getMainBanner`).then(({ data }) => {
+				let htmlStr = '';
+				
+				if (data) {
+					sessionStorage.setItem("Banner", data);
+					const bannerList = JSON.parse(data);
+
+					htmlStr += `<div class="swiper-container banner-swiper swiperWrap">`;
+					htmlStr +=   `<div class="swiper-wrapper">`;
+
+					bannerList.forEach((banner, index) => {
+						const { blob_data, ext } = banner;
+
+						htmlStr +=   `<div class="swiper-slide" id="ev${index + 1 < 10 ? `0${index + 1}` : index + 1}">`;
+						htmlStr +=     `<a href="javascript:void(0);" target="" title="" onclick="bannerClick(${index})">`;
+						htmlStr +=       `<img src="${getImageSrc(blob_data, ext)}" alt="">`;
+						htmlStr +=     `<\/a>`;
+						htmlStr +=   `<\/div>`;
+					});
+
+					htmlStr +=   `<\/div>`;
+					htmlStr +=   `<div class="swiper-pagination" id="swiper-pagination"><\/div>`;
+					htmlStr += `<\/div>`;
+
+					document.querySelector("#banner").innerHTML = htmlStr;
+
+					initSwiper(bannerList.length);
+				} else {
+					document.querySelector("#banner").innerHTML = htmlStr;
+				}
+			});
+		};
+
+		const hashHandler = function () {
+			document.querySelector('#subMenuDialog').classList.add('hidden');
+
+			sessionStorage.getItem("counselorInfo") && sessionStorage.removeItem("counselorInfo");
+
+			if (document.location.hash === '') {
+				window.history.pushState(null, document.title, location.href);
+				window.onpopstate = () => { history.go(1); };
+				drawMainMenu();
+				drawCustomMenu();
+				// bottom 이전버튼 disabled 추가해야됨
+			} else {
+				window.onpopstate = () => { };
+				let str_hash = document.location.hash;
+				str_hash = str_hash.replace("#", "");
+				
+				try{
+			    	const str_hash_arr = common.base64UrlDecode(str_hash).split("|");
+					menuClick(str_hash_arr[0], str_hash_arr[1], str_hash_arr[2]);
+				}catch (err){
+				   location.replace(contextPath + "/auth/accessDenied");
+				}
+			}
+		}
+
+		// Menu Change 
+		const menuHashChange = function (index, menu_seq, mc_flag) {
+			const getMenuArr = mc_flag == 1 ? sessionStorage.getItem("menuDataTree") : sessionStorage.getItem("customMenuDataTree");
+			const menuArray = JSON.parse(getMenuArr);
+			const packageName = /*[[${packageName}]]*/ "";
+			const etc_str = menuArray[index].etc_str != null && menuArray[index].etc_str != "" ? JSON.parse(menuArray[index].etc_str) : null;
+			const defaultMsg = /*[[#{mobile.page.connect.default.msg}]]*/ "";
+			switch (Number(menuArray[index].menu_type) || 0) {
+				case 2:
+					document.querySelector('#subMenuClickMsg').innerHTML = etc_str?.confirmMsg ? etc_str?.confirmMsg : defaultMsg;
+					document.querySelector('#subMenuDialog #indexSubMenu').value = index;
+					document.querySelector('#subMenuDialog #packageName').value = packageName;
+					document.querySelector('#subMenuDialog #mc_flag').value = mc_flag;
+					document.querySelector('#subMenuDialog').classList.remove('hidden');
+
+					call.voiceStop(false, etc_str.audioPath);
+					break;
+				case 3:
+					counselorConnectionClick(index, mc_flag);
+					break;
+				case 4:
+					ivrBusiness(index, mc_flag);
+					break;	
+				default:
+					const menuId = mc_flag == 1 ? menu_seq : 'ct' + menu_seq;
+					if (document.getElementById(menuId)?.getAttribute('onclick')) {
+						document.getElementById(menuId).removeAttribute('onclick'); // unbind('click')
+					}
+
+					window.location.hash = `#${common.base64UrlEncode(`${index}|${menu_seq}|${mc_flag}`)}`;
+					break;
+			}
+		}
+
+		// Menu Change 
+		// Menu Click
+		const menuClick = function (index, menu_seq, mc_flag) {
+			let htmlSubStr = '';
+			const getMenuArr = mc_flag == 1 ? sessionStorage.getItem("menuDataTree") : sessionStorage.getItem("customMenuDataTree");
+			const menuArray = JSON.parse(getMenuArr);
+
+			// 메뉴설명 음성플레이 종료 및 클릭메뉴 음성 시작
+			const etc_str = JSON.parse(menuArray[index].etc_str);
+
+			// 메뉴 타이틀
+			htmlSubStr += `<section class=\"contentTitle\">`;
+			htmlSubStr +=   `<span class=\"title\">`;
+			htmlSubStr +=     menuArray[index].menu_name;
+			htmlSubStr +=   `<\/span>`;
+			htmlSubStr += `<\/section>`;
+			
+			const upper_message = menuArray[index].menu_type === 1 && etc_str.confirmMsg ? "<h4>"+etc_str.confirmMsg+"<\/h4>" : "";
+
+			// 메인메뉴
+			htmlSubStr += `<section>`;
+			htmlSubStr += upper_message;
+			htmlSubStr +=   `<nav class="navi sublist">`;
+			htmlSubStr +=     `<ul class="mN_list">`;
+
+			menuArray.forEach((item, key) => {
+				if (menu_seq == item.menu_seq_parent) {
+					htmlSubStr +=   `<li class="mN_list_btn">`;
+
+					let onclick_str = '';
+
+					switch (item.menu_type) {
+						case 1:
+							onclick_str = `menuHashChange(${key}, ${item.menu_seq}, ${mc_flag});`;
+							break;
+						case 2:
+							onclick_str = `linkClick(${key}, ${mc_flag});`;
+							break;
+						case 3:
+							onclick_str = `counselorConnectionClick(${key}, ${mc_flag});`;
+							break;
+						case 4:
+							onclick_str = `ivrBusiness(${key}, ${mc_flag});`;
+							break;
+					}
+
+					htmlSubStr +=     `<a class="list_btn" href="javascript:" title="${item.menu_name}" id="${item.menu_seq}" onclick="${onclick_str}">`;
+					htmlSubStr +=       `<span class="menuT">`;
+					htmlSubStr +=         `<span class="numbering">${item.menu_number}.<\/span> ${item.menu_name}`;
+					htmlSubStr +=       `<\/span>`;
+					htmlSubStr +=     `<\/a>`;
+					htmlSubStr +=   `<\/li>`;
+				}
+			})
+
+			htmlSubStr +=     `<\/ul>`;
+			htmlSubStr +=   `<\/nav>`;
+			htmlSubStr += `<\/section>`;
+
+			document.querySelector('#mainContainer').classList.add('hidden');
+			document.querySelector('#subContainer').classList.remove('hidden');
+			document.querySelector('#subContainerContent').innerHTML = htmlSubStr;
+
+			call.traceJourney(menuArray[index].tracecode).then(() => call.voiceStop(false, etc_str.audioPath));
+		}
+		
+		const ivrBusiness = function(index, mc_flag){
+			const menuArray = JSON.parse(mc_flag == 1 ? sessionStorage.getItem("menuDataTree") : sessionStorage.getItem("customMenuDataTree"));
+			const etc_str = menuArray[index].etc_str != null && menuArray[index].etc_str != "" ? JSON.parse(menuArray[index].etc_str) : null;
+			
+			if (!etc_str || !etc_str.scType) {
+				alert("메뉴 구성정보 오류\n관리자에게 문의하세요.");
+				return;
+			}
+			
+			const scName = etc_str.scType === '2' ? 'email'
+							:etc_str.scType === '3' ? 'fax'
+							:'sms';
+							
+			sessionStorage.setItem("md", JSON.stringify(menuArray[index]));
+
+			location.assign(contextPath + '/ivr/send/'+scName);
+		}
+
+		// Menu Click
+		// Menu Link Click	
+		const linkClick = function (index, mc_flag) {
+			const menuArray = JSON.parse(mc_flag == 1 ? sessionStorage.getItem("menuDataTree") : sessionStorage.getItem("customMenuDataTree"));
+			const menu_name = menuArray[index].menu_name;
+
+			const menu_number = menuArray[index].menu_number;
+			const packageName = /*[[${packageName}]]*/ "";
+			const etc_str = menuArray[index].etc_str != null && menuArray[index].etc_str != "" ? JSON.parse(menuArray[index].etc_str) : null;
+
+			if (etc_str == null) {
+				alert("메뉴 구성정보 오류\n관리자에게 문의하세요.");
+				return;
+			}
+
+			const externalYn = etc_str.urlexternalyn;	//내부,외부 링크 구분
+
+			if (externalYn > 0) {
+				
+				const defaultMsg = /*[[#{mobile.page.connect.default.msg}]]*/ "";
+				
+				document.querySelector('#subMenuClickMsg').innerHTML = etc_str?.confirmMsg ? etc_str?.confirmMsg : defaultMsg;
+				document.querySelector('#subMenuDialog #indexSubMenu').value = index;
+				document.querySelector('#subMenuDialog #packageName').value = packageName;
+				document.querySelector('#subMenuDialog #mc_flag').value = mc_flag;
+
+				document.querySelector('#subMenuDialog').classList.remove('hidden');
+
+				// 메뉴설명 음성플레이 종료 및 클릭메뉴 음성 시작
+				call.voiceStop(false, etc_str.audioPath);
+			} else {
+				location.assign(contextPath + menuArray[index].menu_url);
+			}
+		}
+
+		// Menu Link Click
+		// Menu Link Move
+		const linkMove = function () {
+			const packageName = /*[[${packageName}]]*/ "";
+			const mc_flag = document.querySelector('#subMenuDialog #mc_flag').value;
+			const menuArray = JSON.parse(mc_flag == 1 ? sessionStorage.getItem("menuDataTree") : sessionStorage.getItem("customMenuDataTree"));
+			const temp = menuArray[document.querySelector('#subMenuDialog #indexSubMenu').value];
+			const etc_str = temp.etc_str != null && temp.etc_str != "" ? JSON.parse(temp.etc_str) : null;
+			const etcJson = temp.etc_str;
+			const targetFlag = JSON.parse(etcJson).target_flag;		// 새창여부	
+			const extraTrace = JSON.parse(etcJson).extraTrace;		// 여정확장	
+			const wcSeq = /*[[${wcSeq}]]*/ "";
+
+			let menu_url = temp.menu_url;
+
+			if (packageName && (packageName === etc_str.packageAndroid || packageName === etc_str.packageIos)) {
+				menu_url = temp.deep_link;
+			}
+
+			menu_url = menu_url.replaceAll(" ", "");
+
+			let winOpen;
+			
+			const menu_seq = mc_flag == 1 ? temp.menu_seq : 'ct' + temp.menu_seq;
+			if (document.getElementById(menu_seq)?.getAttribute('onclick')) {
+				document.getElementById(menu_seq).removeAttribute('onclick'); // unbind('click')
+			}
+
+			if (navigator.userAgent.toLowerCase().indexOf("safari") > -1) {
+				switch (targetFlag) {
+					case '1':
+						winOpen = null;
+						break;
+					case '2':
+						winOpen = window.open();
+						break;
+				}
+			}
+
+			call.traceJourney(temp.tracecode).then(() => {
+				// 콜종료 후 모바일 서비스 이동
+				call.unbind().then(() => {
+					common.setSessionEnd().then(({ status }) => {
+						if (status === 200) {
+							if (extraTrace > 0) {
+								menu_url += new URLSearchParams(menu_url).size > 0 ? "&" : `?wcseq=${wcSeq}`;
+							}
+							beforeLink().then(() => {
+								if (targetFlag == "1") {
+									location.assign(menu_url);
+								} else {
+									if (navigator.userAgent.toLowerCase().indexOf("safari") > -1) {
+										winOpen.location = returnUrl;
+									} else {
+										const childPop = window.open(menu_url);
+		
+										try {
+											childPop.focus();
+										} catch (e) {
+											alert("팝업이 차단되어 있습니다. 팝업 차단해제 후 다시 이용해주세요");
+										}
+									}
+								}
+							});
+						}
+					});
+				});
+			});
+		}
+
+		// Counselor direct Link Move
+		const counselorConnectionClick = function (index, mc_flag) {
+			const menuArray = JSON.parse(mc_flag == 1 ? sessionStorage.getItem("menuDataTree") : sessionStorage.getItem("customMenuDataTree"));
+			const etc_str = menuArray[index].etc_str != null && menuArray[index].etc_str != "" ? JSON.parse(menuArray[index].etc_str) : null;
+			const temp = menuArray[index];
+			
+			const menu_seq = mc_flag == 1 ? temp.menu_seq : 'ct' + temp.menu_seq;
+			if (document.getElementById(menu_seq)?.getAttribute('onclick')) {
+				document.getElementById(menu_seq).removeAttribute('onclick'); // unbind('click')
+			}
+
+			call.traceJourney(temp.tracecode).then(() => {
+				call.counselorCheckTime(etc_str.cs_time_st, etc_str.cs_time_ed).then(({ data }) => {
+					sessionStorage.setItem("md", JSON.stringify(menuArray[index]));
+					if (data) {
+						location.assign(`${contextPath}/counselor/connect/confirm`);
+					} else {
+						location.assign(`${contextPath}/common/timeGuide`);
+					}
+				});
+			});
+		}
+
+		// Notice Print
+		const getNotice = function () {
+			axios.post(`${contextPath}/main/ajax/getNotice`).then(({ data }) => {
+								if (data) {
+					document.querySelector('#noticeDialog #noticeTitleMsg').textContent = data.n_subject;
+					document.querySelector('#noticeDialog #noticeMsg').textContent = data.n_data;
+					document.querySelector('#noticeDialog').classList.remove('hidden');
+				} else {
+					// 공지사항 데이터가 없을 시
+					sessionStorage.setItem("noticeConfirm", "success");
+					tPhoneCehck();
+				}
+			});
+		};
+
+		// TPhone Check
+		const tPhoneCehck = function () {
+			if (navigator.userAgent.toLowerCase().indexOf("tphone") > -1) {
+				document.querySelector('#subMenuClickMsgTphone').textContent = 'T전화를 통한 DigitalARS사용은 불가합니다. 음성ARS로 이동합니다.'; // 여기 되는지 확인 필요, 안되면 innerHTML 사용할 것 @@@
+				document.querySelector('#subMenuDialogTphone #indexTphone').value = index;
+				document.querySelector('#subMenuDialogTphone #packageNameTphone').value = packageName;
+				document.querySelector('#subMenuDialogTphone #mc_flagTphone').value = mc_flag;
+				document.querySelector('#subMenuDialogTphone').classList.remove('hidden');
+				setTimeout(() => connectVoiceArs(), 4000);
+			}
+		}
+
+		// Banner IMG Print
+		// Banner Click
+		const bannerClick = function (index) {
+			const menuArray = JSON.parse(sessionStorage.getItem("Banner"));
+			const etc_str = menuArray[index].etc_str != null && menuArray[index].etc_str != "" ? JSON.parse(menuArray[index].etc_str) : null;
+
+			if (etc_str == null) {
+				alert("배너 구성정보 오류\n관리자에게 문의하세요.");
+				return;
+			} else {
+				document.querySelector('#bannerMenuClickMsg').innerHTML = etc_str.confirmMsg
+			}
+
+			document.querySelector('#bannerMenuDialog #indexBanner').value = index;
+			document.querySelector('#bannerMenuDialog').classList.remove('hidden');
+
+			//메뉴설명 음성플레이 종료 및 클릭메뉴 음성 시작  ( 추후 변경 필요 )
+			call.voiceStop(false, etc_str.audioPath);
+		}
+
+		// Banner Click
+		// Banner Link Move
+		const bannerLinkMove = function (index) {
+			const packageName = /*[[${packageName}]]*/ "";
+
+			const menuArray = JSON.parse(sessionStorage.getItem("Banner"));
+			const temp = menuArray[document.querySelector('#bannerMenuDialog #indexBanner').value];
+			const etc_str = temp.etc_str != null && temp.etc_str != "" ? JSON.parse(temp.etc_str) : null;
+			const wcSeq = /*[[${wcSeq}]]*/ "";
+			const etcJson = temp.etc_str;
+			const targetFlag = JSON.parse(etcJson).target_flag;		// 새창여부																						
+			const extraTrace = JSON.parse(etcJson).extraTrace;		// 여정확장	
+
+			let menu_url = temp.url_link;
+
+			if (packageName && (packageName === etc_str.packageAndroid || packageName === etc_str.packageIos)) {
+				menu_url = temp.deep_link;
+			}
+
+			menu_url = menu_url.replaceAll(" ", "");
+
+			let winOpen;
+			if (navigator.userAgent.toLowerCase().indexOf("safari") > -1) {
+				switch (targetFlag) {
+					case '1':
+						winOpen = null;
+						break;
+					case '2':
+						winOpen = window.open();
+						break;
+				}
+			}
+
+			call.traceJourney(temp.tracecode).then(() => {
+				// 콜종료 후 모바일 서비스 이동
+				call.unbind().then(() => {
+					common.setSessionEnd().then(({ status }) => {
+						if (status === 200) {
+							if (extraTrace > 0) {
+								menu_url += new URLSearchParams(menu_url).size > 0 ? "&" : `?wcseq=${wcSeq}`;
+							}
+							beforeLink().then(() => {
+								if (targetFlag == "1") {
+									location.assign(menu_url);
+								} else {
+									if (navigator.userAgent.toLowerCase().indexOf("safari") > -1) {
+										winOpen.location = returnUrl;
+									} else {
+										const childPop = window.open(menu_url);
+		
+										try {
+											childPop.focus();
+										} catch (e) {
+											alert("팝업이 차단되어 있습니다. 팝업 차단해제 후 다시 이용해주세요");
+										}
+									}
+								}
+							});
+						}
+					});
+				});
+			});
+		}
+
+		// Banner Link Move
+		const initSwiper = function (size) {
+			let swiper = new Swiper(".banner-swiper", {
+				slidesPerView: 'auto',
+				loop: true,
+				autoplay: {
+					delay: 2000,
+				},
+				pagination: {
+					el: ".swiper-pagination",
+					//type: 'fraction'
+				},
+				navigation: {
+					nextEl: ".swiper-button-next",
+					prevEl: ".swiper-button-prev",
+				},
+			});
+		};
+
+		const subMenuDialogCancel = function () {
+			document.querySelector('#subMenuDialog').classList.add('hidden');
+			document.querySelector('#subMenuDialogEffect').classList.add('hidden');
+			// 메뉴설명 음성플레이 종료 및 클릭메뉴 음성 시작
+			call.voiceStop(false, "sound/DARS/da_main.pcm");
+		}
+
+		const counselerDialogCancel = function () {
+			document.querySelector('#counselorMenuDialog').classList.add('hidden');
+		}
+
+		const noticeDialogCancel = function () {
+			sessionStorage.setItem("noticeConfirm", "success");
+			document.querySelector('#noticeDialog').classList.add('hidden');
+			tPhoneCehck();
+		}
+
+		const bannerMenuDialogCancel = function () {
+			document.querySelector('#bannerMenuDialog').classList.add('hidden');
+			//메뉴설명 음성플레이 종료 및 클릭메뉴 음성 시작
+			call.voiceStop(false, "sound/DARS/da_main.pcm");
+		}
+		
+		const setMenuSessionStorage = async () => {
+			if (!sessionStorage.getItem('customMenuDataTree')) {
+				await axios.post(`${contextPath}/main/ajax/getSuggestMenu`).then(({ data }) => data && sessionStorage.setItem("customMenuDataTree", data));
+			}
+
+			if (!sessionStorage.getItem('menuDataTree')) {
+				await axios.post(`${contextPath}/common/ajax/getArsMenuDataTree`).then(({ data }) => data && sessionStorage.setItem("menuDataTree", JSON.stringify(data)));
+			}
+
+			if (!sessionStorage.getItem('blobData')) {
+				await axios.post(`${contextPath}/main/ajax/getBlobList`).then(({ data }) => data && sessionStorage.setItem('blobData', JSON.stringify(data)));
+			}
+		}
+
+		const beforeLink = () => {
+			return new Promise((resolve) => {
+				polling.stop();
+				document.querySelector('#subMenuDialog').classList.add('hidden');
+				document.querySelector('#bannerMenuDialog').classList.add('hidden');
+				document.querySelector('#mainContainer').innerHTML = 
+				'<div class="contents"><div class="displayMiddle"><section class="row"><div class="small">'+
+				'<h2><span class="custom_text">선택하신 서비스로 이동 합니다.<\/span><\/h2><\/div>'; 
+				document.querySelector('#loading').classList.remove('hidden');
+				resolve();
+			});
+		}
+	</script>
+</head>
+
+<th:block layout:fragment="content">
+	<!-- main container -->
+	<div class="container index" id="mainContainer">
+		<div class="contents">
+			<section class="info">
+				<span class="custom_text" id="topIntro">
+					인사말
+				</span>
+				<!-- <div class="infotitle">
+					<ul>
+						<li><span class="custom_text" id="customerName"></span></li>
+						<li><span class="custom_text"></span></li>
+					</ul>
+				</div> -->
+			</section>
+			<!-- Layout -->
+			<section id="previewTop"></section>
+			<section id="previewMiddle"></section>
+			<section id="previewBottom"></section>
+			<!-- // Layout -->
+			<!-- suggest -->
+			<section id="suggest">
+				<div class="quick-wrapper">
+					<ul class="quickMenu">
+						<li>
+							<a href="javascript:void(0);" class="list_btn l1" title="">
+								<span class="menuT">추천메뉴 1</span>
+							</a>
+						</li>
+						<li>
+							<a href="javascript:void(0);" class="list_btn l1" title="">
+								<span class="menuT">추천메뉴 2</span>
+							</a>
+						</li>
+						<li>
+							<a href="javascript:void(0);" class="list_btn l1" title="">
+								<span class="menuT">추천메뉴 3</span>
+							</a>
+						</li>
+						<li>
+							<a href="javascript:void(0);" class="list_btn l1" title="">
+								<span class="menuT">추천메뉴 4</span>
+							</a>
+						</li>
+					</ul>
+				</div>
+			</section>
+			<!-- // suggest -->
+			<!-- main -->
+			<section id="main">
+				<p class="mT1_5em">
+					<span class="custom_text_small">
+						원하시는 서비스를 선택해 주세요.
+					</span>
+				</p>
+				<!-- 메인 메뉴 시작 -->
+				<nav class="navi">
+					<ul class="mN_list">
+						<li class="mN_list_btn">
+							<a class="list_btn" href="#" title="">
+								<span class="menuT">1. 메뉴</span>
+							</a>
+						</li>
+						<li class="mN_list_btn">
+							<a class="list_btn" href="#" title="">
+								<span class="menuT">2. 메뉴</span>
+							</a>
+						</li>
+						<li class="mN_list_btn">
+							<a class="list_btn" href="#" title="">
+								<span class="menuT">3. 메뉴</span>
+							</a>
+						</li>
+						<li class="mN_list_btn">
+							<a class="list_btn" href="#" title="">
+								<span class="menuT">4. 메뉴</span>
+							</a>
+						</li>
+					</ul>
+				</nav>
+				<!-- 메인 메뉴 끝 -->
+			</section>
+			<!-- // main -->
+			<!-- Swiper -->
+			<section class="mB0_5em" id="banner">
+				<div class="swiper-container banner-swiper swiperWrap">
+					<div class="swiper-wrapper">
+						<div class="swiper-slide" id="ev01">
+							<a href="#" title=""><img th:src="@{/static/images/banner01.jpg}" alt=""></a>
+						</div>
+					</div>
+					<div class="swiper-pagination" id="swiper-pagination"></div>
+				</div>
+			</section>
+			<!-- //Swiper -->
+			<p class="bottomspan">
+				<span id="bottomIntro">하단 안내 문구</span>
+			</p>
+			<div id="FABMG">
+				<p class="d-flex">
+					<span class="fi-headphones"></span>
+					<span>상담사 연결</span>
+				</p>
+			</div>
+			<!-- IVR TEST PAGE LINK -->
+			<!-- <th:block th:if="${ivrTest}">
+				<a th:href="@{/test/ivrTestMock}">IVR TEST PAGE</a>
+			</th:block> -->
+		</div>
+	</div>
+	<!-- // main container -->
+	<!-- sub container -->
+	<div class="container_wrapper hidden" id="subContainer">
+		<div class="container sdefaultMenu">
+			<div class="contents contentline" id="subContainerContent"></div>
+		</div>
+	</div>
+	<!-- // sub container -->
+	<!-- subMenuDialog -->
+	<div id="subMenuDialog" class="hidden">
+		<div class="noticeModal overlayBlack">
+			<div class="modal">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-body">
+							<div class="guide">
+								<p>
+									<span class="custom_text" id="subMenuClickMsg"></span>
+								</p>
+							</div>
+							<input type="hidden" id="indexSubMenu"> <input type="hidden" id="packageName"> <input type="hidden" id="mc_flag">
+						</div>
+						<ul class="button_group popupbtn">
+							<li>
+								<button type="button" class="button fit" onclick="subMenuDialogCancel()">취소</button>
+							</li>
+							<li>
+								<button type="button" class="button fit submit" onclick="linkMove()">확인</button>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="overlayBlack_bg"></div>
+		</div>
+	</div>
+	<!-- // subMenuDialog -->
+	<!-- subMenuDialogEffect -->
+	<div id="subMenuDialogEffect" class="hidden">
+		<div class="noticeModal overlayBlack">
+			<div class="modal">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-body">
+							<div class="guide">
+								<p>
+									<span class="custom_text" id="subMenuClickMsgEffect"></span>
+								</p>
+							</div>
+							<input type="hidden" id="indexEffect"> <input type="hidden" id="packageNameEffect"> <input type="hidden" id="mc_flagEffect">
+						</div>
+						<ul class="button_group popupbtn">
+							<li>
+								<button type="button" class="button fit submit" onclick="subMenuDialogCancel()">확인</button>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="overlayBlack_bg"></div>
+		</div>
+	</div>
+	<!-- // subMenuDialogEffect -->
+	<!-- bannerMenuDialog -->
+	<div id="bannerMenuDialog" class="hidden">
+		<div class="noticeModal overlayBlack">
+			<div class="modal">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-body">
+							<div class="guide">
+								<p>
+									<span class="custom_text" id="bannerMenuClickMsg"></span>
+								</p>
+							</div>
+							<input type="hidden" id="indexBanner">
+						</div>
+						<ul class="button_group popupbtn">
+							<li>
+								<button type="button" class="button fit" onclick="bannerMenuDialogCancel()">취소</button>
+							</li>
+							<li>
+								<button type="button" class="button fit submit" onclick="bannerLinkMove()">확인</button>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="overlayBlack_bg"></div>
+		</div>
+	</div>
+	<!-- // bannerMenuDialog -->
+	<!-- subMenuDialogTphone -->
+	<div id="subMenuDialogTphone" class="hidden">
+		<div class="noticeModal overlayBlack">
+			<div class="modal">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-body">
+							<div class="guide">
+								<p>
+									<span class="custom_text" id="subMenuClickMsgTphone"></span>
+								</p>
+							</div>
+							<input type="hidden" id="indexTphone"> <input type="hidden" id="packageNameTphone"> <input type="hidden" id="mc_flagTphone">
+						</div>
+						<ul class="button_group popupbtn">
+							<li>
+								<button type="button" class="button fit submit" onclick="connectVoiceArs()">확인</button>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="overlayBlack_bg"></div>
+		</div>
+	</div>
+	<!-- // subMenuDialogTphone -->
+	<!-- Notice Area -->
+	<div id="noticeDialog" class="hidden">
+		<div class="emergency overlayBlack">
+			<div class="modal">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-body">
+							<div class="guide">
+								<h2 id="noticeTitleMsg"></h2>
+								<p>
+									<span class="custom_text" id="noticeMsg"></span>
+								</p>
+							</div>
+						</div>
+						<ul class="button_group popupbtn">
+							<li>
+								<button type="button" class="button fit special" onclick="noticeDialogCancel()">확인</button>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="overlayBlack_bg"></div>
+		</div>
+	</div>
+	<!-- // Notice Area -->
+</th:block>
+
+</html>

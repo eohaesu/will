@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Footer -->
+<th:block th:fragment="footerFragment">
+	<script th:inline="javascript">
+		document.addEventListener('DOMContentLoaded', () => {
+			location.pathname === '/dars/main' && footerHashHandler();
+		});
+
+		const footerHashHandler = function () {
+			if (location.pathname == '/dars/main' && document.location.hash === '') {
+				document.querySelector('#backPage').disabled = true;
+				document.querySelector('#backPage').classList.add('disabled');
+			} else {
+				document.querySelector('#backPage').disabled = false;
+				document.querySelector('#backPage').classList.remove('disabled');
+			}
+		};
+
+		//콜종료 버튼
+		const fCallEndBtn = function () {
+			polling.stop();
+			call.traceJourney(siteInfo.site_code + "0BTCEND").then(() => {
+				call.unbind().then(() => {
+					location.replace(`${contextPath}/auth/sessionEnd`);
+				});
+			});
+		};
+
+		//음성ARS 연결
+		const fConnectVoiceArs = function () {
+			polling.stop();
+			call.traceJourney(siteInfo.site_code + "0BTVARS", 'ivr').then(() => {
+				axios.post(`${contextPath}/api/wms/external/goToEnd`, { message: '01' }).then(({ data }) => {
+					data && location.replace(`${contextPath}/common/sessionEndWithParam?link=false`);
+				});
+			});
+		};
+
+		const fBackPage = function () {
+			history.back();
+		};
+
+		const fGoToMain = function () {
+			location.replace(contextPath + "/main");
+		};
+	</script>
+	<!-- footer -->
+	<footer id="footContainer" class="footer_wrapper">
+		<div class="footer footerNav">
+			<button type="button" class="button square" title="이전" onclick="fBackPage()" id="backPage"><span class="icon ti-angle-left"><span
+						class="custom_text">이전</span></span></button>
+			<button type="button" class="button square" title="Home" onclick="fGoToMain()"><span class="icon fi-home"><span class="custom_text">Home</span></span></button>
+			<button type="button" class="button square" title="음성ARS" onclick="fConnectVoiceArs()"><span class="icon fi-grid"><span class="custom_text">음성ARS</span></span></button>
+			<button type="button" class="button square" title="통화종료" onclick="fCallEndBtn()"><span class="icon fi-phone-off"><span class="custom_text">종료</span></span></button>
+		</div>
+	</footer>
+	<!-- //footer -->
+</th:block>
+
+</html>

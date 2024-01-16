@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/default}">
+<head>
+	<script th:inline="javascript">
+
+		document.addEventListener('DOMContentLoaded', () => {
+		
+			(setLogoImg = () => {
+				const base64Img = sessionStorage.getItem('base64Img_logo');
+
+				base64Img && document.querySelector('body').style.setProperty('--ci-img', `url('${base64Img}')`);
+			})();
+
+			const mdData = JSON.parse(sessionStorage.getItem("md"));
+			
+			const etc_str = mdData && mdData.etc_str ? JSON.parse(mdData.etc_str) : null;
+			
+			const dataAlign = {
+					"0" : {"1" : "전화번호 남기기",  "2" : "0FABACK",  "3" : "sound/DARS/da_cb_fail.pcm"},
+					"1" : {"1" : "문자 전송",  "2" : "0FASSMS",  "3" : "sound/DARS/da_sms_fail.pcm"},
+					"2" : {"1" : "이메일 전송", "2" : "0FAMAIL",  "3" : "sound/DARS/da_mail_fail.pcm"},
+					"3" : {"1" : "FAX 전송",  "2" : "0FASFAX",  "3" : "sound/DARS/da_fax_fail.pcm"} 
+			}
+			
+			const scType = etc_str?.scType ? etc_str.scType : '0';
+
+			document.querySelector('#cTitle').textContent = dataAlign[scType][1];
+			document.querySelector('#cText').innerHTML = dataAlign[scType][1]+document.querySelector('#cText').innerHTML;
+
+			//여정적재
+			call.traceJourney(siteInfo.site_code+dataAlign[scType][2]).then(() => {
+				call.voiceStop(false, dataAlign[scType][3]);
+				polling.shortReq();
+			});
+		});
+
+		const backToMain = () => location.replace(`${document.querySelector('#contextPathHolder').getAttribute('data-contextPath')}/main`);
+	</script>
+</head>
+<th:block layout:fragment="content">
+	<div class="ivr">
+				<!-- Contents -->
+				<div class="container_wrapper">
+						<div class="container">
+								<div class="contents contentline">
+										<section class="contentTitle">
+												<span class="title" id="cTitle"></span>
+										</section>
+										<section class="row">
+												<div class="imgBox">
+							<p class="imageIcon">
+								<span class="icon result_completion"></span><!-- 성공 result_completion -->
+							</p>
+						</div>
+						<div class="small">
+							<h2 style="text-align: center;">
+								<span class="custom_text" id="cText">을(를) 실패하였습니다.<br />잠시 후 다시 이용 부탁 드립니다.</span>
+							</h2>
+						</div>
+						<ul class="button_group full mT1_5em">
+													<li>
+															<button type="button" class="button submit" onclick="backToMain()">홈으로</button>
+													</li>
+											</ul>
+										</section>
+				</div>
+			</div>
+		</div>
+		<!-- //Contents End-->
+	</div>
+</th:block>
+</html>

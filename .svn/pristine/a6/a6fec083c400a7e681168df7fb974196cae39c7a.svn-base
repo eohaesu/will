@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<th:block th:fragment="scriptFragment">
+	<!-- Constants scripts -->
+	<script th:inline="javascript">
+		const contextPath = document.querySelector('#contextPathHolder').getAttribute('data-contextPath')||'';
+		const token = document.querySelector("meta[name='_csrf']").getAttribute("content");
+		const header = document.querySelector("meta[name='_csrf_header']").getAttribute("content");
+
+		//Axios send csrf base set
+		axios.defaults.headers.post['X-CSRF-Token'] = token;
+		axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+		axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+		axios.defaults.timeout = 10000;
+		axios.interceptors.response.use(function (response) {
+			return response;
+		}, function (error) {
+			/**catch axios error
+			*["ERR_BAD_OPTION_VALUE", "ERR_BAD_OPTION", "ECONNABORTED", "ETIMEDOUT", "ERR_NETWORK", "ERR_FR_TOO_MANY_REDIRECTS", 
+			"ERR_DEPRECATED", "ERR_BAD_RESPONSE", "ERR_BAD_REQUEST", "ERR_CANCELED", "ERR_NOT_SUPPORT", "ERR_INVALID_URL"]
+			**/
+			if(error.code && error.code === 'ECONNABORTED'){
+				alert("접속 상태가 원할하지 않습니다. \n 모바일 통신상태를 확인해 주시기 바랍니다.");
+			}else{
+				switch (error.response.status) {
+				case 403:
+					if (error.response.headers.poll_denied === 'Y') {
+						location.replace(contextPath + "/common/callEnd");
+					} else {
+						fetch(`${contextPath}/auth/chksid`, { method: 'GET' })
+							.then(res => res.json())
+							.then(data => {
+								if (!data) {
+									location.replace(`${contextPath}/common/callEnd`);
+								} else {
+									location.replace(`${contextPath}/auth/accessDenied`);
+								}
+							});
+					}
+					break;
+				case 500:
+					alert("처리 중 오류가 발생했습니다.");
+					return location.replace(`${contextPath}/auth/serverError`);
+				}
+			}
+		});
+	</script>
+	<!-- common scripts -->
+	<script th:src="@{/static/js/common/polling.js}"></script>
+	<script th:src="@{/static/js/common/common.js}"></script>
+	<script th:src="@{/static/js/common/call.js}"></script>
+	<script th:src="@{/static/js/common/theme.js}"></script>
+</th:block>
+
+</html>

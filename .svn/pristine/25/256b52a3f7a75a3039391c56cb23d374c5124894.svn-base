@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/default}">
+
+<head>
+	<script th:src="@{/static/js/common/validate.js}"></script>
+	<script th:inline="javascript">
+
+		let etc_str = null;
+
+		document.addEventListener('DOMContentLoaded', () => {
+
+			const mdData = JSON.parse(sessionStorage.getItem("md"));
+
+			etc_str = mdData && mdData.etc_str ? JSON.parse(mdData.etc_str) : null;
+
+			const traceCode = siteInfo.site_code + "0VIBACK";
+
+			call.traceJourney(traceCode).then(() => {
+				call.voiceStop(false, "sound/DARS/da_callback.pcm");
+				polling.shortReq(1500, ctrlback);
+				//polling.longSSE(ctrlback);
+			});
+		});
+
+		const next = function () {
+			const errMsg = {
+				"-1": "휴대폰 또는 전화번호 번호 형식이 잘못되었습니다.",
+				"-2": "조회를 실패하였습니다."
+			}
+			if ( !validate.checkInputType('cell', document.querySelector('#tel').value) && !validate.checkInputType('fax', document.querySelector('#tel').value)) {
+				alert(errMsg[-1]);
+				document.querySelector("#tel").focus();
+				return false;
+			} else {
+				axios.post(`${contextPath}/ivr/send/callback/etc`, { tel: document.querySelector('#tel').value }).then(({ data }) => {
+					if (data > 0) {
+						document.querySelector('#loading').classList.remove('hidden');
+					} else {
+						alert(errMsg[data]);
+					}
+				});
+			}
+		};
+		const ctrlback = (data) => {
+			document.querySelector('#loading').classList.add('hidden');
+			const dataArr = data.param.split(',');
+			//busiCode가 일치 할때 처리
+			if (dataArr[0] === etc_str.scCode && dataArr[1] === "Y") {
+				location.replace(`${contextPath}/ivr/send/finish`);
+			} else {
+				location.replace(`${contextPath}/ivr/send/fail`);
+			}
+		};
+
+	</script>
+</head>
+<th:block layout:fragment="content">
+	<div class="ivr">
+		<!-- Contents -->
+		<div class="container_wrapper">
+			<div class="container">
+				<div class="contents contentline">
+					<section class="contentTitle">
+						<span class="title">전화번호 남기기</span>
+					</section>
+					<section class="row">
+						<h4>연락 받으실 휴대폰/전화 번호를 입력해주세요.<br />
+							미 입력 시 현재 번호로 전송 됩니다.</h4>
+						<div class="table">
+							<ul>
+								<li>
+									<span>수신번호</span>
+								</li>
+								<li>
+									<input type="text" id="tel" onInput="common.cellNumHyphen(this)" maxlength="13" placeholder="휴대폰/전화 번호 입력">
+								</li>
+							</ul>
+						</div>
+						<ul class="button_group full mT1_5em">
+							<li>
+								<button type="button" class="button submit" onclick="next()">전화번호 남기기</button>
+							</li>
+						</ul>
+					</section>
+				</div>
+			</div>
+		</div>
+		<!-- //Contents End-->
+	</div>
+</th:block>
+
+</html>

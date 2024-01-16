@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/default}"
+	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+	<script th:inline="javascript">
+		document.addEventListener('DOMContentLoaded', () => {
+			
+			const mdData = JSON.parse(sessionStorage.getItem("md"));
+
+			const etc_str = mdData && mdData.etc_str ? JSON.parse(mdData.etc_str) : null;
+
+			const traceCode = siteInfo.site_code + "0VICSCL";
+			
+			let voiceData = [
+				{
+					"TYPE": "FILE",
+					"SRC": "da_timeguide",
+					"TTSCLASS": ""
+				}
+			];	
+			
+			if(etc_str && etc_str.cs_time_st && etc_str.cs_time_ed){
+				const stArr = etc_str.cs_time_st.split(":");
+				const edArr = etc_str.cs_time_ed.split(":");
+
+				const stH = parseInt(stArr[0]);
+				const stM = parseInt(stArr[1]);
+				const edH = parseInt(edArr[0]);
+				const edM = parseInt(edArr[1]);
+
+				let startTime = stH > 12 ? '오후 '+(stH - 12) : '오전 '+stH;
+				startTime += '시';
+				startTime += stM > 0 ? stM+'분' : '';
+
+				let endTime = edH > 12 ? '오후 '+(edH - 12) : '오전 '+edH;
+				endTime += '시';
+				endTime += edM > 0 ? edM+'분' : '';
+				
+				document.querySelector("#startTime").textContent = startTime;
+				document.querySelector("#endTime").textContent = endTime;
+				
+				voiceData = [
+				{
+					"TYPE": "FILE",
+					"SRC": "sound/DARS/da_timeguide_start.pcm",
+					"TTSCLASS": ""
+				},
+				{
+					"TYPE": "TTS",
+					"SRC": startTime+"부터 "+endTime,
+					"TTSCLASS": "TEXT"
+				},
+				{
+					"TYPE": "FILE",
+					"SRC": "sound/DARS/da_timeguide_end.pcm",
+					"TTSCLASS": ""
+				}
+				];
+				
+				if(etc_str.callBack > 0){
+					document.querySelector('#phoneNb_callback').style.display = 'block';
+				}
+			}			
+
+			//상담사 불가 시간안내
+			call.traceJourney(traceCode).then(() => {
+				call.voiceStop(false, voiceData);
+			});
+
+			polling.shortReq(); //start short polling
+
+		});
+
+		const localCallEnd = () => {
+			const traceCode = siteInfo.site_code + '0BTCEND';
+
+			call.traceJourney(traceCode).then(() => {
+				call.unbind().then(() => {
+					location.replace(`${contextPath}/auth/sessionEnd`);
+				});
+			});
+		};
+		
+		const phoneNb_callback = function () {
+			location.replace(`${contextPath}/ivr/send/callback`);
+		};
+
+	</script>
+</head>
+
+<th:block layout:fragment="content">
+	<div class="ivr">
+		<!-- Contents -->
+		<div class="container_wrapper">
+			<div class="container">
+				<div class="contents">
+					<section class="contentTitle">
+						<span class="title">상담 이용시간 안내</span>
+					</section>
+					<div class="displayMiddle_title">
+						<section class="row">
+							<div class="imgBox">
+								<p class="imageIcon">
+									<span class="icon timeguide"></span>
+								</p>
+							</div>
+							<div class="small">
+								<h2>
+									<span class="custom_text">
+										상담 이용시간이 아닙니다.<br />
+										상담이 가능한 시간은<br />
+										<span id="startTime">오전 9시</span>부터 <span id="endTime">오후 6시</span>까지 입니다.
+									</span>
+								</h2>
+							</div>
+							<ul class="button_group full mT1_5em">
+								<li id="phoneNb_callback" style="display: none;">
+									<button type="button" class="button" onclick="phoneNb_callback()">전화번호 남기기</button>
+								</li>
+								<li>
+									<button type="button" class="button"  onclick="localCallEnd();">종료</button>
+								</li>
+							</ul>
+						</section>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- //Contents -->
+	</div>
+</th:block>
+
+</html>
